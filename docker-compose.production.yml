@@ -1,0 +1,47 @@
+services:
+  track-router:
+    container_name: track-router
+    restart: unless-stopped
+    build: .
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - MATRIX_PROVIDER=valhalla # valhalla | google
+      - ROUTING_PROVIDER=google
+      - VALHALLA_URL=http://valhalla:8002
+      - SERVER_PORT=3001
+      - VALHALLA_MIN_SPEED_KMH=30
+      - SENTRY_DSN=https://dac8896ffbe7bfcd1704db4a2b55b353@o4510189522583553.ingest.us.sentry.io/4510941020618752
+      - GOOGLE_API_KEY=AIzaSyBuPAW96F721ybpRhcnYfhcu1pHzZc07cU
+    networks:
+      - default
+
+  valhalla:
+    image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+    container_name: valhalla
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./docker/valhalla/custom_files:/custom_files
+    environment:
+      - serve_tiles=True
+      - build_elevation=False
+      - build_admins=False
+      - build_time_zones=False
+      - build_tar=True
+      - server_threads=2
+      - tile_urls=https://download.geofabrik.de/south-america/brazil/sudeste-latest.osm.pbf https://download.geofabrik.de/south-america/brazil/centro-oeste-latest.osm.pbf
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 8G
+    networks:
+      - default
+
+networks:
+  default:
+    external: true
+    name: track-shared

@@ -1,0 +1,62 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - "develop-*"
+      - "staging-*"
+      - "main-*"
+      - "main_*"
+      - "enem-*"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name }}
+    env:
+      BRANCH: ${{ github.ref_name }}
+      SERVER_HOST: ${{ vars.SERVER_HOST }}
+      SERVER_USER: ${{ vars.SERVER_USER }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+      DOCKER_COMPOSE_FILE: ${{ vars.DOCKER_COMPOSE_FILE }}
+      RAILS_ENV: ${{ vars.RAILS_ENV }}
+      REPOSITORY_URL: ${{ vars.REPOSITORY_URL }}
+    steps:
+      - name: Validate environment
+        run: |
+          for v in SERVER_HOST DEPLOY_PATH DOCKER_COMPOSE_FILE RAILS_ENV REPOSITORY_URL; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Variável $v não definida no Environment '$BRANCH'"
+              exit 1
+            fi
+          done
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+
+      - name: Install mina
+        run: gem install mina
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SERVER_PRIVATE_KEY }}
+
+      - name: Add server to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy
+        run: mina deploy_docker
